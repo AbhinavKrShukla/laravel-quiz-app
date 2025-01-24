@@ -15,34 +15,44 @@
 ```
 
 
-# Planning of the WebApp
+# Planning
 
 ## Description of the App
-
 
 ## Structure
 
 ### Directory structure
 
 - views
-  - admin
+    - admin
+    - auth
     - ...
-  - backend
-    - ...
-  - layouts
-    - ...
+    - backend
+        - layouts
+            - navbar `blade.php`
+            - sidebar `blade.php`
+            - master `blade.php`
+            - dashboard `blade.php`
+            - footer `blade.php`
+        - quiz
+            - create `blade.php`
+            - edit `blade.php`
+            - update `blade.php`
 
 
-## Migrations
+### UI Structures
+
+Sidebar
+- Dashboard
+- Create Quiz
+- View All Quiz
+
+## Models, Migrations and Relationships
+
+- [See Model, Migration, and Relationships Here](#model-migration-and-relationships)
 
 
-## Models
-
-- 
-
-## Relationships between Models
-
-- 
+<hr>
 
 # Laravel Scaffolding
 
@@ -60,13 +70,16 @@ incompatibility.
 To solve it:
 - Go to `package.json` and modify the version of vite in
 `devDependencies` section as:
-```json
-"devDependencies": {
-    ...
-    ...
-    "vite": "^5.4.14",
-}
-```
+  ```json
+  "devDependencies": {
+      ...
+      ...
+      "vite": "^5.4.14",
+  }
+  ```
+  This should solve the problem.
+
+<hr>
 
 # Integrate Admin Template
 
@@ -75,8 +88,7 @@ The template is located in `public/edmin_template`.
 
 ## Create js and Css links 
 
-
-### Create directory for admin
+### Create a directory for admin
 
 - Go to `resources/views` and create this directory structure:
   - views
@@ -86,7 +98,7 @@ The template is located in `public/edmin_template`.
 
 ### Create route
 
-- Make this `admin.index` the default route.
+- Make this `admin.index` the default route. (Just for initial testing)
 
 ```php
 Route::get('/', function () {
@@ -94,7 +106,7 @@ Route::get('/', function () {
 });
 ```
 
-### Copy from template/index
+### Copy from [`edmin_template/index.html`](./public/edmin_template/index.html)
 
 - From the template, copy the code from `index.html` file and 
 paste it in `admin/index.blade.php`.
@@ -109,6 +121,7 @@ paste it in `admin/index.blade.php`.
 
 - views
   - admin
+  - auth
   - ...
   - backend
     - layouts
@@ -117,6 +130,7 @@ paste it in `admin/index.blade.php`.
       - master
       - dashboard
       - footer
+
 
 ### Extract different sections from `admin/index.blade.php`
 
@@ -151,7 +165,6 @@ paste in respective files in `views/backend/layouts/*`.
 ```
 
 
-
 # Model, Migration and Relationships
 
 ## Create Models and Migration files
@@ -167,27 +180,27 @@ table for `quiz` and `user` table.
 
 ### Configure the database 
 
-### quizzes migration 
+### `quizzes` migration 
 
 - `id`
 - `name` - string
 - `description` - text
 - `minutes` - integer
 
-### questions migration
+### `questions` migration
 
 - `id`
 - `questions` - string
 - `quiz_id` - integer
 
-### answers migration
+### `answers` migration
 
 - `id`
 - `question_id` - integer
 - `answer` - string
 - `is_correct` - boolean
 
-### results migration
+### `results` migration
 
 - `id`
 - `user_id` - integer
@@ -195,7 +208,7 @@ table for `quiz` and `user` table.
 - `question_id` - integer
 - `answer_id` - integer
 
-### users migration
+### `users` migration
 
 - `id`
 - `users` - string
@@ -207,9 +220,8 @@ table for `quiz` and `user` table.
 - `address` - string - nullable
 - `phone` - string - nullable
 - `is_admin` - integer - default=0
-- ... other fields continues
 
-### quiz_user migration - pivot table
+### `quiz_user` migration - pivot table
 
 - `id`
 - `quiz_id`
@@ -224,6 +236,9 @@ table for `quiz` and `user` table.
  
 Fillables are the column names that can be used to manually store
 the data into it. It is an array defined in the Model file.
+
+If $fillables are not defined, then we can't store any data in any
+fields in the database. It would throw a nice error in this case.
 
 ### User 
 
@@ -318,5 +333,403 @@ class Result extends Model
 
 # Quiz Section
 
+## Setup
+
+### Create Controller 
+
+`php artisan make:controller QuizController -r`
+
+### Create a resource roue
+
+```php
+Route::group([], function () {
+    Route::resource('quiz', QuizController::class);
+});
+```
+
+### Create a directory for backend view
+
+`resources/views/backend/quiz/`
+
+Structure:
+
+- quiz
+  - create.blade.php
+  - index.blade.php
+  - edit.blade.php
 
 
+
+## Create Quiz form
+
+### QuizController@create
+
+```php
+    public function create()
+    {
+        return view('backend.quiz.create');
+    }
+```
+
+
+### quiz/create.blade.php
+
+```bladehtml
+@extends('backend.layouts.master')
+
+@section('content')
+<div class="span9">
+    <div class="content">
+
+        @if(Session::has('message'))
+        <div class="alert alert-success">
+            <button type="button" class="close" data-dismiss="alert">×</button>
+            <strong>{{Session::get('message')}}</strong>
+        </div>
+        @endif
+
+        <div class="module">
+            <div class="module-head">
+                <h3>Create Quiz</h3>
+            </div>
+            <div class="module-body">
+
+                <form class="form-horizontal row-fluid" method="post" action="{{route('quiz.store')}}"> @csrf
+                    <div class="control-group @error('name') alert alert-error @enderror">
+                        <label class="control-label" for="basicinput">Quiz Name</label>
+                        <div class="controls">
+                            <input name="name" type="text" id="basicinput" placeholder="Quiz Name..." class="span8" value="{{old('name')}}" ><br>
+                            @error('name')
+                            <span class="text-error">{{$message}}</span>
+                            @enderror
+                        </div>
+
+                    </div>
+
+                    <div class="control-group @error('description') alert alert-error @enderror">
+                        <label class="control-label" for="description">Description</label>
+                        <div class="controls">
+                            <input name="description" id="description" type="text" placeholder="Description..." class="span8" value="{{old('description')}}"><br>
+                            @error('description')
+                            <span class="text-error">{{$message}}</span>
+                            @enderror
+                        </div>
+                    </div>
+
+                    <div class="control-group @error('minutes') alert alert-error @enderror">
+                        <label class="control-label" for="minutes">Time </label>
+                        <div class="controls">
+                            <select tabindex="1" data-placeholder="Select..." class="span2" name="minutes">
+                                <option value="">Select....</option>
+                                @for($i=5; $i<=60; $i+=5)
+                                <option value="{{$i}}" @if(old('minutes')==$i) selected @endif >{{$i}}</option>
+                                @endfor
+                            </select>
+                            <span class="help-inline">minutes</span>
+                            <br>
+                            @error('minutes')
+                            <span class="text-error">{{$message}}</span>
+                            @enderror
+                        </div>
+                    </div>
+
+                    <div class="control-group" style="text-align:center">
+                        <div class="">
+                            <button type="submit" class="btn btn-success">Create</button>
+                        </div>
+                    </div>
+
+                </form>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+@endsection
+
+```
+
+### Create a method in Quiz Model `to store a new quiz`
+
+```php
+    public function storeQuiz($data){
+        return Quiz::create($data);
+    }
+```
+
+### QuizController@store
+
+```php
+    public function store(Request $request)
+    {
+        $this->validate($request, [
+            'name' => 'required|min:3',
+            'description' => 'required',
+            'minutes' => 'required'
+        ]);
+
+        (new Quiz)->storeQuiz($request->all());
+
+        return redirect()->back()->with('message', 'Quiz created successfully');
+    }
+```
+
+### Create a method in Quiz Model `to get all the quiz`
+
+```php
+    public function allQuiz(){
+        return Quiz::get();
+    }
+```
+
+### QuizController@index
+
+```php
+    public function index()
+    {
+        $quizzes = (new Quiz)->allQuiz();
+        return view('backend.quiz.index', compact('quizzes'));
+    }
+```
+
+### quiz/index.blade.php
+
+```bladehtml
+@extends('backend.layouts.master')
+
+@section('content')
+    <div class="span9">
+        <div class="content">
+
+            @if(Session::has('message'))
+                <div class="alert alert-success">
+                    <button type="button" class="close" data-dismiss="alert">×</button>
+                    <strong>{{Session::get('message')}}</strong>
+                </div>
+            @endif
+
+            <div class="module">
+                <div class="module-head">
+                    <h3>All Quiz</h3>
+                </div>
+                <div class="module-body">
+
+
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Quiz Name</th>
+                                <th>Description</th>
+                                <th>Time Allotted</th>
+                                <th>Edit</th>
+                                <th>Delete</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach($quizzes as $key=>$quiz)
+                            <tr>
+                                <td>{{$key+1}}</td>
+                                <td>{{$quiz->name}}</td>
+                                <td>{{$quiz->description}}</td>
+                                <td>{{$quiz->minutes}} minutes</td>
+                                <td>
+                                    <a href="{{route('quiz.edit', $quiz->id)}}">
+                                        <button class="btn btn-primary">Edit</button>
+                                    </a>
+                                </td>
+                                <td>
+                                    <form id="delete-form-{{$quiz->id}}"
+                                        method="post" action="{{route('quiz.destroy', $quiz->id)}}">
+                                        @csrf @method('DELETE')
+                                    </form>
+                                    <a href="#" onclick="
+                                        if(confirm('Do you want to delete?')){
+                                            event.preventDefault();
+                                            document.getElementById('delete-form-{{$quiz->id}}').submit()
+                                        } else {
+                                            event.preventDefault();
+                                        }
+                                    ">
+                                        <input type="submit" value="Delete" class="btn btn-danger">
+                                    </a>
+                                </td>
+                            </tr>
+                        @endforeach
+
+                        </tbody>
+                    </table>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+@endsection
+
+```
+
+
+### Create a method in Quiz Model `to get a quiz by id`
+
+```php
+    public function getQuizById($id){
+        return Quiz::find($id);
+    }
+```
+
+### QuizController@edit
+
+```php
+    public function edit(string $id)
+    {
+        $quiz = (new Quiz)->getQuizById($id);
+        return view('backend.quiz.edit', compact('quiz'));
+    }
+```
+
+### quiz/edit.blade.php
+
+```bladehtml
+@extends('backend.layouts.master')
+
+@section('content')
+    <div class="span9">
+        <div class="content">
+
+            @if(Session::has('message'))
+                <div class="alert alert-success">
+                    <button type="button" class="close" data-dismiss="alert">×</button>
+                    <strong>{{Session::get('message')}}</strong>
+                </div>
+            @endif
+
+            <div class="module">
+                <div class="module-head">
+                    <h3>Update Quiz</h3>
+                </div>
+                <div class="module-body">
+
+                    <form class="form-horizontal row-fluid" method="post" action="{{route('quiz.update', $quiz->id)}}"> @csrf @method('PATCH')
+                        <div class="control-group @error('name') alert alert-error @enderror">
+                            <label class="control-label" for="basicinput">Quiz Name</label>
+                            <div class="controls">
+                                <input name="name" type="text" id="basicinput" placeholder="Quiz Name..." class="span8" value="{{$quiz->name}}" ><br>
+                                @error('name')
+                                    <span class="text-error">{{$message}}</span>
+                                @enderror
+                            </div>
+
+                        </div>
+
+                        <div class="control-group @error('description') alert alert-error @enderror">
+                            <label class="control-label" for="description">Description</label>
+                            <div class="controls">
+                                <input name="description" id="description" type="text" placeholder="Description..." class="span8" value="{{$quiz->description}}"><br>
+                                @error('description')
+                                    <span class="text-error">{{$message}}</span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="control-group @error('minutes') alert alert-error @enderror">
+                            <label class="control-label" for="minutes">Time </label>
+                            <div class="controls">
+                                <select tabindex="1" data-placeholder="Select..." class="span2" name="minutes">
+                                    <option value="">Select....</option>
+                                    @for($i=5; $i<=60; $i+=5)
+                                        <option value="{{$i}}" @if($quiz->minutes==$i) selected @endif>{{$i}}</option>
+                                    @endfor
+                                </select>
+                                <span class="help-inline">minutes</span>
+                                <br>
+                                @error('minutes')
+                                    <span class="text-error">{{$message}}</span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="control-group" style="text-align:center">
+                            <div class="">
+                                <button type="submit" class="btn btn-success">Update</button>
+                            </div>
+                        </div>
+
+                    </form>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+@endsection
+
+```
+
+### Create a method in Quiz Model `to update a quiz by id`
+
+```php
+    public function updateQuiz($id,$data){
+        return Quiz::find($id)->update($data);
+    }
+```
+
+### QuizController@update
+
+```php
+    public function update(Request $request, string $id)
+    {
+        $this->validate($request, [
+            'name' => 'required|min:3',
+            'description' => 'required',
+            'minutes' => 'required'
+        ]);
+
+        (new Quiz)->updateQuiz($id, $request->all());
+        return redirect()->to(route('quiz.index'))->with('message', 'Quiz updated successfully');
+    }
+```
+
+### Create a method in Quiz Model `to delete a quiz by id`
+
+```php
+    public function deleteQuiz($id){
+        return Quiz::destroy($id);
+    }
+```
+
+### QuizController@destroy
+
+```php
+    public function destroy(string $id)
+    {
+        (new Quiz)->deleteQuiz($id);
+        return redirect()->back()->with('message', 'Quiz deleted successfully');
+    }
+```
+
+## Update the SideBar
+
+Sidebar Structure (Till Now):
+- Dashboard
+- Create Quiz
+- View All Quiz
+
+### Note
+
+Still, we have not configured the Dashboard. Let's configure it.
+- It should extend the `backend.layouts.master`.
+- All the things should be inside the `content` section.
+  ```
+    @extends('backend.layouts.master')
+    @section('content')
+        <div>...
+        ...</div>
+    @endsection
+  ```
+  
+[//]: # (Quiz Section Completed)
+<hr>
+
+# Question Section

@@ -1,3 +1,7 @@
+@extends('backend.layouts.master')
+
+@section('content')
+
 <!--/.span3-->
 <div class="span9">
     <div class="content">
@@ -5,7 +9,7 @@
             <div class="btn-box-row row-fluid">
                 <a href="#" class="btn-box big span4"><i class=" icon-random"></i><b>65%</b>
                     <p class="text-muted">
-                        Growth</p>
+                        Growthaaa</p>
                 </a><a href="#" class="btn-box big span4"><i class="icon-user"></i><b>15</b>
                     <p class="text-muted">
                         New Users</p>
@@ -1135,3 +1139,4 @@
 {{--<!--/.container-->--}}
 {{--</div>--}}
 {{--<!--/.wrapper-->--}}
+@endsection
