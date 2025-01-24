@@ -237,7 +237,7 @@ table for `quiz` and `user` table.
 Fillables are the column names that can be used to manually store
 the data into it. It is an array defined in the Model file.
 
-If $fillables are not defined, then we can't store any data in any
+If `$fillables` is not defined, then we can't store any data in any
 fields in the database. It would throw a nice error in this case.
 
 ### User 
@@ -339,7 +339,7 @@ class Result extends Model
 
 `php artisan make:controller QuizController -r`
 
-### Create a resource roue
+### Create a resource route
 
 ```php
 Route::group([], function () {
