@@ -353,7 +353,7 @@ Route::group([], function () {
 
 Structure:
 
-- quiz
+- backend/quiz
   - create.blade.php
   - index.blade.php
   - edit.blade.php
@@ -733,3 +733,633 @@ Still, we have not configured the Dashboard. Let's configure it.
 <hr>
 
 # Question Section
+
+## Setup
+
+### Create Controller
+
+`php artisan make:controller QuestionController -r`
+
+### Create a resource Route
+
+```php
+Route::resource('question', QuestionController::class);
+```
+
+### Create directory structure for view
+
+- backend/question
+    - create.blade.php
+    - index.blade.php
+    - edit.blade.php
+
+
+## CRUD
+
+### Create question
+
+#### QuestionController@create
+
+  - Copy from `quiz/create.blade.php`.
+  - Change the required names in the form.
+  - Create four options in this way:
+    - inside a for loop starting with `i=0` to `i<4`,
+    - `<input name="options[]">`: options[] is an array as we are
+  taking multiple inputs from the single from.
+    - create another `<input type="radio" value="{{$i}}">` for each `option` and 
+  its value is the $i variable of the loop.
+
+
+```php
+    public function create()
+    {
+        return view('backend.question.create');
+    }
+```
+
+#### question/create.blade.php
+
+[See the `question/create.blade.php` here](./resources/views/backend/question/create.blade.php)
+
+
+### Store the Question
+
+#### Validate
+
+- Create a `validateForm()` method in the class, to separately validate 
+the `$request`.
+  - Validate the form:
+    - `quiz`: required
+    - `question`: required
+    - `options`: bail|required|array|min:3
+      - Here, `bail` only checks the input for conditions only if it is not empty.
+  So, if any option is empty, it will not check for conditions like required, array and min:3.
+    - `options.*`: bail|required|string|distinct
+      - This is for the four different options.
+    - `correct_answer`: required.
+  - Return the $data
+
+```php
+    public function validateForm($data)
+    {
+        $this->validate($data, [
+            'quiz' => 'required',
+            'question' => 'required|min:3',
+            'options' => 'bail|required|array|min:3',
+            'options.*' => 'bail|required|string|distinct',
+            'correct_answer' => 'required',
+        ]);
+        return $data;
+    }
+```
+
+#### Write the `store()` method as:
+
+```php
+    public function store(Request $request)
+    {
+        $data = $this->validateForm($request);
+        $question = (new Question)->storeQuestion($request);
+        (new Answer)->storeAnswer($data, $question);
+        return redirect()->back()->with('message', 'Question created successfully');
+    }
+```
+
+Now create the `storeQuestion()` and `storeAnswer()` methods in their
+respective models.
+
+#### Create `storeQuestion()` method in `Question` model
+
+```php
+    public function storeQuestion($data){
+        $data['quiz_id'] = $data['quiz'];
+        return Question::create($data);
+
+    }
+```
+
+#### Create `storeAnswer()` method in `Answer` model
+
+```php
+    public function storeAnswer($data, $question){
+        foreach($data['options'] as $key=>$answer){
+            $is_correct = false;
+            if($key==$data['correct_answer']){
+                $is_correct = true;
+            }
+            Answer::create([
+                'question_id' => $question->id,
+                'answer' => $data['answer'],
+                'is_correct' => $data['is_correct'],
+            ]);
+        }
+    }
+```
+
+
+### Get all the Questions
+
+#### Update Question Model and create a method `to get all the questions`
+
+```php
+
+    private $limit = 10;
+    private $order = 'DESC';
+    
+    public function getQuestions(){
+        return Question::orderBy('created_at', $this->order)->with('quiz')->paginate($this->limit);
+    }
+
+```
+
+#### Create QuestionController@index
+
+```php
+    public function index()
+    {
+        $questions = (new Question)->getQuestions();
+        return view('backend.question.index', compact('questions'));
+    }
+
+```
+
+#### Create view for index.blade.php
+
+[See the `question/create.blade.php` here](./resources/views/backend/question/index.blade.php)
+
+```bladehtml
+@extends('backend.layouts.master')
+
+@section('content')
+<div class="span9">
+    <div class="content">
+
+        @if(Session::has('message'))
+        <div class="alert alert-success">
+            <button type="button" class="close" data-dismiss="alert">×</button>
+            <strong>{{Session::get('message')}}</strong>
+        </div>
+        @endif
+
+        @if ($errors->any())
+        <div class="alert alert-danger">
+            <ul>
+                @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+        @endif
+
+        <div class="module">
+            <div class="module-head">
+                <h3>All Questions</h3>
+            </div>
+            <div class="module-body">
+
+
+                <table class="table table-striped">
+                    <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Question</th>
+                        <th>Quiz</th>
+                        <th>Created on</th>
+                        <th>Edit</th>
+                        <th>Delete</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @if(count($questions) == 0)
+                    <tr>
+                        No questions to display!
+                    </tr>
+                    @else
+                    @foreach($questions as $key=>$question)
+
+                    <tr>
+                        <td>{{$key+1}}</td>
+                        <td>{{$question->question}}</td>
+                        <td>{{$question->quiz->name}}</td>
+                        <td>{{date('F d, Y', strtotime($question->created_at))}}</td>
+                        <td>
+                            <a href="{{route('question.edit', $question->id)}}">
+                                <button class="btn btn-primary">Edit</button>
+                            </a>
+                        </td>
+                        <td>
+                            <form id="delete-form-{{$question->id}}"
+                                  method="post" action="{{route('question.destroy', $question->id)}}">
+                                @csrf @method('DELETE')
+                            </form>
+                            <a href="#" onclick="
+                                                if(confirm('Do you want to delete?')){
+                                                    event.preventDefault();
+                                                    document.getElementById('delete-form-{{$question->id}}').submit()
+                                                } else {
+                                                    event.preventDefault();
+                                                }
+                                            ">
+                                <input type="submit" value="Delete" class="btn btn-danger">
+                            </a>
+                        </td>
+                    </tr>
+                    @endforeach
+                    @endif
+
+
+                    </tbody>
+                </table>
+
+                <div class="pagination pagination-centered">
+                    {{$questions->links('pagination::bootstrap-5')}}
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+@endsection
+
+```
+
+
+### Show a Particular Question
+
+#### Add a new column after the `created on` in `index.blade.php`
+
+#### Create `getquestion()` in Question Model `to get a question`
+
+```php
+    public function getQuestion($id){
+        return Question::find($id);
+    }
+```
+
+#### Create `getanswer()` in Answer Model `to get answers of a question`
+
+```php
+    public function getAnswers($question){
+        return Answer::where('question_id', $question)->get();
+    }
+```
+
+#### Create QuestionController@show
+
+- This returns the view page for a single question.
+
+```php
+    public function show(string $id)
+    {
+        $question = (new Question)->getQuestion($id);
+        $answers = (new Answer)->getAnswers($id);
+        return view('backend.question.show', compact('question', 'answers'));
+    }
+```
+
+#### `question/show.blade.php`
+
+[See the `question/show.blade.php` here](./resources/views/backend/question/show.blade.php)
+
+
+### Update a Question
+
+Steps:
+- Create Methods in Question Model
+  - `getQuestion($id)` - to get a question by id
+  - `updateQuestion($id, $data)` - to update a question
+    - find the question by $id
+    - get the `question` and `quiz_id` fields
+    - save to database.
+  - `deleteQuestion($id)` - to delete a particular question
+- Create Methods in Answer Model
+  - `getAnswers($question)` - to get all the answers to a particular question 
+  - `updateAnswer($data, $question)` - to update all the answers
+    - delete the answer using `deleteAnswer()`, then
+    - use `storeAnswer()` of the same class to store new answer.
+  - `deleteAnswer($question_id)` - to delete all the answers of a question 
+- Create QuestionController@edit()
+  - get the question
+  - get its answers
+  - return the view page of edit
+- Create question/edit.blade.php
+  - copy the `create.blade.php`
+  - change the values where required
+  - get the values from database for previously filled fields.
+- Create QuestionController@update()
+  - use `validateForm()` to validate the data
+  - use `updateQuestion()` method of `Question` Model to update question. 
+  - use `updateAnswer()` method of `Answer` Model to update the answer. 
+  
+
+#### Create Methods in `Question` Model
+
+```php
+    public function getQuestion($id){
+        return Question::find($id);
+    }
+
+    public function updateQuestion($id, $data){
+        $question = Question::find($id);
+        $question->question = $data['question'];
+        $question->quiz_id = $data['quiz'];
+        $question->save();
+        return $question;
+    }
+
+    public function deleteQuestion($id){
+        $question = Question::find($id);
+        $question->delete();
+
+    }
+```
+
+#### Create Methods in `Answer` Model
+
+```php
+    public function getAnswers($question){
+        return Answer::where('question_id', $question)->get();
+    }
+
+    public function updateAnswer($data, $question){
+        $this->deleteAnswer($question->id);
+        $this->storeAnswer($data, $question);
+    }
+
+    public function deleteAnswer($question_id){
+        Answer::where('question_id', $question_id)->delete();
+    }
+```
+
+#### QuestionController@edit
+
+```php
+    public function edit(string $id)
+    {
+        $question = (new Question)->getQuestion($id);
+        $answers = (new Answer)->getAnswers($id);
+        return view('backend.question.edit', compact('question', 'answers'));
+    }
+```
+
+#### question/edit.blade.php
+
+[See the `question/edit.blade.php` here](./resources/views/backend/question/edit.blade.php)
+
+```bladehtml
+@extends('backend.layouts.master')
+
+@section('content')
+    <div class="span9">
+        <div class="content">
+
+            @if(Session::has('message'))
+                <div class="alert alert-success">
+                    <button type="button" class="close" data-dismiss="alert">×</button>
+                    <strong>{{Session::get('message')}}</strong>
+                </div>
+            @endif
+
+            <div class="module">
+                <div class="module-head">
+                    <h3>Update Question</h3>
+                </div>
+                <div class="module-body">
+
+                    <form class="form-horizontal row-fluid" method="post" action="{{route('question.update', $question->id)}}">
+                        @csrf
+                        @method("PUT")
+
+                        <div class="control-group @error('quiz') alert alert-error @enderror">
+                            <label class="control-label" for="quiz">Choose Quiz</label>
+                            <div class="controls">
+                                <select id="quiz" tabindex="1" data-placeholder="Select..." class="span4" name="quiz">
+                                    <option value="">Select....</option>
+                                    @foreach(App\Models\Quiz::all() as $quiz)
+                                        <option value="{{$quiz->id}}" @if($quiz->id==$question->quiz_id) selected @endif >{{$quiz->name}}</option>
+                                    @endforeach
+                                </select>
+                                <br>
+                                @error('quiz')
+                                <span class="text-error">{{$message}}</span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="control-group @error('question') alert alert-error @enderror">
+                            <label class="control-label" for="basicinput">Question</label>
+                            <div class="controls">
+                                <input name="question" type="text" id="basicinput" placeholder="Question..." class="span10" value="{{$question->question}}" required><br>
+                                @error('question')
+                                <span class="text-error">{{$message}}</span>
+                                @enderror
+                            </div>
+
+                        </div>
+
+                        <div class="control-group">
+                            <label class="control-label" for="options">Options</label>
+                            <div class="controls">
+                                @for($i=0; $i<4; $i++)
+                                    <input name="options[]" id="options" type="text" placeholder="Option {{$i+1}}..." class="span8 border-red" value="{{$answers[$i]->answer}}" style="margin-top:10px;">
+                                    <input type="radio" name="correct_answer" value="{{$i}}" @if($answers[$i]->is_correct==1) checked @endif><span class="help-inline">Is Correct</span><br>
+                                    @error('option'.$i)
+                                    <span class="text-error">{{$message}}</span><br>
+                                    @enderror
+                                @endfor
+                            </div>
+                        </div>
+
+
+                        <div class="control-group" style="text-align:center">
+                            <div class="">
+                                <button type="submit" class="btn btn-success">Update Question</button>
+                            </div>
+                        </div>
+
+                    </form>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+@endsection
+
+```
+
+#### QuestionCotroller@update
+
+```php
+    public function update(Request $request, string $id)
+    {
+        $data = $this->validateForm($request);
+        $question = (new Question)->updateQuestion($id, $data);
+        (new Answer)->updateAnswer($data, $question);
+        return redirect()->route('question.show', $id)->with('message', 'Question updated successfully');
+    }
+```
+
+
+### Delete question and answer
+
+Steps:
+- Create delete button in `index` and `show` files which hits 
+the delete route of the question.
+- QuestionController@destroy() method
+  - delete the question using `deleteQuestion($id)` method of the Question Model.
+  - delete the answer using `deleteAnswer($id)` method of the Answer Model.
+  - return to `index` route with a success message.
+  
+#### QuestionController@destroy
+
+```php
+    public function destroy(string $id)
+    {
+        (new Question)->deleteQuestion($id);
+        (new Answer)->deleteAnswer($id);
+        return redirect()->route('question.index')->with('message', 'Question deleted successfully');
+    }
+```
+
+### Get questions by quiz
+
+Steps:
+- Create a route `quiz/{$id}/questions` to get quiz id (so that we can filter the questions).
+- Update the `index` method of `quiz`: add a button against each `quiz` to hit the above route. 
+- Create the `questions()` method in `QuizController`
+  - get the quiz along with the questions
+  - return to view page `backend.quiz.questions` along with the questions
+- Create `backend/quiz/questions.blade.php`
+  - copy from `show.blade.php`
+  - iterate the `$quiz` returned by controller
+  - get the questions
+  - format the page as you like.
+
+#### Create route
+
+```php
+Route::get('quiz/{id}/questions', [QuizController::class, 'questions'])->name('quiz.questions');
+```
+
+#### Create `question()` in QuizController
+
+```php
+    public function questions($id){
+        $quizzes = Quiz::with('questions')->where('id', $id)->get();
+        return view('backend.quiz.questions', compact('quizzes'));
+    }
+```
+
+#### Create `backend/quiz/questions.blade.php`
+
+[See the `quiz/questions.blade.php` here](./resources/views/backend/quiz/questions.blade.php)
+
+```bladehtml
+@extends('backend.layouts.master')
+
+@section('content')
+    <div class="span9">
+        <div class="content">
+
+            @if(Session::has('message'))
+                <div class="alert alert-success">
+                    <button type="button" class="close" data-dismiss="alert">×</button>
+                    <strong>{{Session::get('message')}}</strong>
+                </div>
+            @endif
+
+            @if ($errors->any())
+                <div class="alert alert-danger">
+                    <ul>
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
+
+            @foreach($quizzes as $quiz)
+                <div style="margin: 10px; text-align: center; font-size: 15px;" class="alert alert-success">
+                    <strong>Quiz Name:</strong>
+                    <span class="badge badge-info">
+                        {{$quiz->name}}
+                    </span>
+                </div>
+
+                @foreach($quiz->questions as $qno=>$question)
+
+                    <div class="module">
+                        <div class="module-head">
+                            <h3>{{$qno+1}}. {{$question->question}}</h3>
+                        </div>
+                        <div class="module-body">
+                            <table class="table">
+                                @foreach($question->answers as $key=>$answer)
+                                    <tr>
+                                        <td><strong>{{$key+1}}.</strong> {{$answer->answer}}</td>
+                                        <td>
+                                            <div class="badge badge-success pull-right">
+                                                @if($answer->is_correct == 1)
+                                                    Correct Answer
+                                                @endif
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </table>
+                        </div>
+
+                        <div class="module-foot">
+                            <a href="{{route('question.edit', $question->id)}}">
+                                <button class="btn btn-primary">Edit</button>
+                            </a>
+
+                            <a href="#" onclick="
+                                if(confirm('Do you want to delete?')){
+                                    event.preventDefault();
+                                    document.getElementById('delete-form-{{$question->id}}').submit()
+                                } else {
+                                    event.preventDefault();
+                                }
+                            ">
+                                <input type="submit" value="Delete" class="btn btn-danger">
+                            </a>
+                            <form id="delete-form-{{$question->id}}"
+                                  method="post" action="{{route('question.destroy', $question->id)}}">
+                                @csrf @method('DELETE')
+                            </form>
+
+
+                        </div>
+                    </div>
+                @endforeach
+
+            @endforeach
+        </div>
+    </div>
+
+@endsection
+
+```
+
+## Update the Sidebar
+
+Sidebar Structure (Till Now):
+- Dashboard
+- Create Quiz
+- View All Quiz
+- ++++++++++++++
+- Create Question
+- View All Question
+
+[//]: # (Question Section Completed)
+
+# User
+
+
+
+
+

@@ -80,4 +80,9 @@ class QuizController extends Controller
         (new Quiz)->deleteQuiz($id);
         return redirect()->back()->with('message', 'Quiz deleted successfully');
     }
+
+    public function questions($id){
+        $quizzes = Quiz::with('questions')->where('id', $id)->get();
+        return view('backend.quiz.questions', compact('quizzes'));
+    }
 }

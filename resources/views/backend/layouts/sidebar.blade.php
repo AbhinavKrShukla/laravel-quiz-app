@@ -14,6 +14,14 @@
                     </ul>
                     <!--/.widget-nav-->
 
+                    <ul class="widget widget-menu unstyled">
+                        <li class="active"><a href="{{route('question.create')}}"><i class="menu-icon icon-dashboard"></i>Create Question
+                            </a></li>
+                        <li><a href="{{route('question.index')}}"><i class="menu-icon icon-inbox"></i>View Questions <b class="label green pull-right">
+                                    {{\App\Models\Question::all()->count()}}</b> </a></li>
+                    </ul>
+                    <!--/.widget-nav-->
+
 
                     <ul class="widget widget-menu unstyled">
                         <li><a href="ui-button-icon.html"><i class="menu-icon icon-bold"></i> Buttons </a></li>
