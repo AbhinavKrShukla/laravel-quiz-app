@@ -1359,7 +1359,702 @@ Sidebar Structure (Till Now):
 
 # User
 
+Steps:
+- Setup
+  - Create UserController -r
+  - Create resource route
+  - Ensure $fillbles are defined in the User Model
+- CRUD
+  - Create User
+    - Controller method to get view page of form
+    - Write the view page of form
+    - Controller method to store the data
+  - Get All Users
+    - Controller method to get all users
+    - View Page to show all the users
+    - Links to Edit and Delete User
+  - Show a Single User
+    - Controller method to get a user
+    - View page to show the user
+    - Links to Edit and Delete user
+  - Update User
+    - Controller method to get a user
+    - View Page to edit its details
+    - Controller method to update the data
+  - Delete User
+    - Controller method to delete the user
+      - Logged in user cannot delete itself
+      - Only Admin can delete it
+- Configure the Sidebar
+  - Sidebar
+    - ...
+    - ...
+    - ++++++++
+    - Create User
+    - Get All Users
+
+## Setup
+
+### Create UserController 
+
+`php artisan make:controller UserController -r`
+
+### Create resource route
+
+```php
+Route::resource('user', UserController::class);
+```
+
+## CRUD 
+
+### Create User
+
+#### UserController@create
+
+```php
+    public function create()
+    {
+        return view('backend.user.create');
+    }
+```
+
+#### user/create.blade.php
+
+[user/create.blade.php](./resources/views/backend/user/create.blade.php)
+
+```bladehtml
+@extends('backend.layouts.master')
+
+@section('content')
+    <div class="span9">
+        <div class="content">
+
+            @if(Session::has('message'))
+                <div class="alert alert-success">
+                    <button type="button" class="close" data-dismiss="alert">×</button>
+                    <strong>{{Session::get('message')}}</strong>
+                </div>
+            @endif
+
+            <div class="module">
+                <div class="module-head">
+                    <h3>Create User</h3>
+                </div>
+                <div class="module-body">
+
+                    <form class="form-horizontal row-fluid" method="post" action="{{route('user.store')}}"> @csrf
+
+                        <div class="control-group @error('name') alert alert-error @enderror">
+                            <label class="control-label" for="name">Name*</label>
+                            <div class="controls">
+                                <input name="name" type="text" id="name" placeholder="Name..." class="span10" value="{{old('name')}}" required><br>
+                                @error('name')
+                                <span class="text-error">{{$message}}</span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="control-group @error('email') alert alert-error @enderror">
+                            <label class="control-label" for="email">Email*</label>
+                            <div class="controls">
+                                <input name="email" type="email" id="email" placeholder="Email..." class="span10" value="{{old('email')}}" required><br>
+                                @error('email')
+                                <span class="text-error">{{$message}}</span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="control-group @error('password') alert alert-error @enderror">
+                            <label class="control-label" for="password">Password*</label>
+                            <div class="controls">
+                                <input name="password" type="password" id="password" placeholder="Password..." class="span10" value="{{old('password')}}" required><br>
+                                @error('password')
+                                <span class="text-error">{{$message}}</span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="control-group @error('visible_password') alert alert-error @enderror">
+                            <label class="control-label" for="visible_password">Visible Password*</label>
+                            <div class="controls">
+                                <input name="visible_password" type="password" id="visible_password" placeholder="Password..." class="span10" value="{{old('visible_password')}}" required><br>
+                                @error('visible_password')
+                                <span class="text-error">{{$message}}</span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="control-group @error('occupation') alert alert-error @enderror">
+                            <label class="control-label" for="occupation">Occupation</label>
+                            <div class="controls">
+                                <input name="occupation" type="text" id="occupation" placeholder="Occupation..." class="span10" value="{{old('occupation')}}" ><br>
+                                @error('occupation')
+                                <span class="text-error">{{$message}}</span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="control-group @error('bio') alert alert-error @enderror">
+                            <label class="control-label" for="bio">Bio</label>
+                            <div class="controls">
+                                <input name="bio" type="text" id="bio" placeholder="Bio..." class="span10" value="{{old('bio')}}" ><br>
+                                @error('bio')
+                                <span class="text-error">{{$message}}</span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="control-group @error('address') alert alert-error @enderror">
+                            <label class="control-label" for="address">Address</label>
+                            <div class="controls">
+                                <textarea name="address" type="text" id="address" placeholder="Address..." class="span10" >{{old('address')}}</textarea><br>
+                                @error('address')
+                                <span class="text-error">{{$message}}</span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="control-group @error('phone') alert alert-error @enderror">
+                            <label class="control-label" for="phone">Phone*</label>
+                            <div class="controls">
+                                <input name="phone" type="text" id="phone" placeholder="Phone Number..." class="span10" value="{{old('phone')}}" ><br>
+                                @error('phone')
+                                <span class="text-error">{{$message}}</span>
+                                @enderror
+                            </div>
+                        </div>
 
 
+                        <div class="control-group" style="text-align:center">
+                            <div class="">
+                                <button type="submit" class="btn btn-success">Create User</button>
+                            </div>
+                        </div>
+
+                    </form>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+@endsection
+
+```
+
+#### UserController@store
+
+```php
+    public function store(Request $request)
+    {
+        $this->validateUserDetails($request);
+        (new User)->storeUser($request);
+        return redirect()->back()->with('message', 'User created successfully');
+    }
+```
+
+#### UserController@validateUserDetails()
+
+```php
+    public function validateUserDetails(Request $request){
+
+        if ($request->isMethod('POST')) {
+            $this->validate($request,[
+                'name' => 'required|max:255|min:3',
+                'email' => 'required|email|max:255|unique:users',
+                'password' => 'required|min:6',
+                'visible_password' => 'required|min:6|same:password',
+                'occupation' => 'max:255',
+                'address' => 'required|max:255',
+                'phone' => 'min:5|max:20',
+            ]);
+        }
+
+        if ($request->isMethod('PUT') || $request->isMethod('PATCH')) {
+            $validatedData = $this->validate($request,[
+                'name' => 'bail|required|max:255|min:3',
+                'email' => 'bail|required|email|max:255|unique:users,id',
+                'occupation' => 'max:255',
+                'address' => 'max:255',
+                'bio' => 'max:255',
+                'phone' => 'min:5|max:20',
+            ]);
+
+            if (isset($request->password)){
+                $this->validate($request, [
+                    'password' => 'required|min:6',
+                    'visible_password' => 'required|min:6|same:password',
+                ]);
+                $validatedData['password'] = $request->password;
+                $validatedData['visible_password'] = $request->visible_password;
+            }
+
+            // Filter out null values from the validated data
+            return $filteredData = array_filter($validatedData, function($value) {
+                return !is_null($value);
+            });
+        }
+    }
+```
+
+#### User@storeUser() - Model Method
+
+```php
+    public function storeUser(Request $request){
+        User::create($request->all());
+    }
+```
+
+
+### Get All Users
+
+#### User@getAllUsers
+
+```php
+    public function getAllUsers(){
+        return User::orderBy('created_at', $this->order)->paginate($this->limit);
+    }
+```
+
+#### UserController@index
+
+```php
+    public function index()
+    {
+        $users = (new User)->getAllUsers();
+        return view('backend.user.index', compact('users'));
+    }
+```
+
+#### user/index.blade.php
+
+```bladehtml
+@extends('backend.layouts.master')
+
+@section('content')
+    <div class="span9">
+        <div class="content">
+
+            @if(Session::has('message'))
+                <div class="alert alert-success">
+                    <button type="button" class="close" data-dismiss="alert">×</button>
+                    <strong>{{Session::get('message')}}</strong>
+                </div>
+            @endif
+
+                @if ($errors->any())
+                    <div class="alert alert-danger">
+                        <ul>
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
+            <div class="module">
+                <div class="module-head">
+                    <h3>All Users</h3>
+                </div>
+                <div class="module-body">
+
+
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Occupation</th>
+                                <th>View</th>
+                                <th>Edit</th>
+                                <th>Delete</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if(count($users) == 0)
+                                <tr>
+                                    No user to display!
+                                </tr>
+                            @else
+                                @foreach($users as $key=>$user)
+
+                                    <tr>
+                                        <td>{{$key+1}}</td>
+                                        <td>{{$user->name}}</td>
+                                        <td>{{$user->email}}</td>
+                                        <td>{{$user->phone}}</td>
+                                        <td>{{$user->occupation}}</td>
+                                        <td>
+                                            <a href="{{route('user.show', $user->id)}}">
+                                                <button class="btn btn-info">View</button>
+                                            </a>
+                                        </td>
+                                        <td>
+                                            <a href="{{route('user.edit', $user->id)}}">
+                                                <button class="btn btn-primary">Edit</button>
+                                            </a>
+                                        </td>
+                                        <td>
+                                            <form id="delete-form-{{$user->id}}"
+                                                  method="post" action="{{route('user.destroy', $user->id)}}">
+                                                @csrf @method('DELETE')
+                                            </form>
+                                            <a href="#" onclick="
+                                                if(confirm('Do you want to delete?')){
+                                                    event.preventDefault();
+                                                    document.getElementById('delete-form-{{$user->id}}').submit()
+                                                } else {
+                                                    event.preventDefault();
+                                                }
+                                            ">
+                                                <input type="submit" value="Delete" class="btn btn-danger">
+                                            </a>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            @endif
+
+
+                        </tbody>
+                    </table>
+
+                    <div class="pagination pagination-centered">
+                        {{$users->links('pagination::bootstrap-5')}}
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+@endsection
+
+```
+
+
+### Show a Single User
+
+#### User@getUserById
+
+```php
+    public function getUserById($id){
+        return User::find($id);
+    }
+```
+
+#### UserController@show
+
+```php
+    public function show(string $id)
+    {
+        $user = (new User)->getUserById($id);
+        return view('backend.user.show', compact('user'));
+    }
+```
+
+#### user/show.blade.php
+
+```bladehtml
+@extends('backend.layouts.master')
+
+@section('content')
+    <div class="span9">
+        <div class="content">
+
+            @if(Session::has('message'))
+                <div class="alert alert-success">
+                    <button type="button" class="close" data-dismiss="alert">×</button>
+                    <strong>{{Session::get('message')}}</strong>
+                </div>
+            @endif
+
+            @if ($errors->any())
+                <div class="alert alert-danger">
+                    <ul>
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
+            <div class="module">
+                <div class="module-head">
+
+                    <h3>{{$user->name}}</h3>
+
+                </div>
+                <div class="module-body">
+
+                    <table class="table table-striped">
+
+                        <tr>
+                            <td>Email</td>
+                            <td>
+                                <strong>
+                                {{$user->email}}
+                                </strong>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>Phone</td>
+                            <td>
+                                <strong>
+                                    {{$user->phone}}
+                                </strong>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>Occupation</td>
+                            <td>
+                                <strong>
+                                    {{$user->occupation}}
+                                </strong>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>Bio</td>
+                            <td>
+                                <strong>
+                                    {{$user->bio}}
+                                </strong>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>Address</td>
+                            <td>
+                                <strong>
+                                    {{$user->address}}
+                                </strong>
+                            </td>
+                        </tr>
+
+
+                    </table>
+
+                </div>
+
+                <div class="module-foot">
+                    <a href="{{route('user.edit', $user->id)}}">
+                        <button class="btn btn-primary">Edit</button>
+                    </a>
+
+                    <a href="#" onclick="
+                        if(confirm('Do you want to delete?')){
+                            event.preventDefault();
+                            document.getElementById('delete-form-{{$user->id}}').submit()
+                        } else {
+                            event.preventDefault();
+                        }
+                    ">
+                        <input type="submit" value="Delete" class="btn btn-danger">
+                    </a>
+
+                    <a href="{{route('user.index', $user->id)}}" class="pull-right">
+                        <button class="btn btn-inverse">Back</button>
+                    </a>
+
+                    <form id="delete-form-{{$user->id}}"
+                          method="post" action="{{route('user.destroy', $user->id)}}">
+                        @csrf @method('DELETE')
+                    </form>
+
+
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+@endsection
+
+```
+
+
+### Update User
+
+#### UserController@edit
+
+```php
+    public function edit(string $id)
+    {
+        $user = (new User)->getUserById($id);
+        return view('backend.user.edit', compact('user'));
+    }
+```
+
+#### user/edit.blade.php
+
+[user/edit.blade.php](./resources/views/backend/user/edit.blade.php)
+
+```bladehtml
+@extends('backend.layouts.master')
+
+@section('content')
+    <div class="span9">
+        <div class="content">
+
+            @if(Session::has('message'))
+                <div class="alert alert-success">
+                    <button type="button" class="close" data-dismiss="alert">×</button>
+                    <strong>{{Session::get('message')}}</strong>
+                </div>
+            @endif
+
+            <div class="module">
+                <div class="module-head">
+                    <h3>Update User</h3>
+                </div>
+                <div class="module-body">
+
+                    <form class="form-horizontal row-fluid" method="post" action="{{route('user.update', $user->id)}}"> @csrf
+                        @method('PUT')
+
+                        <div class="control-group @error('name') alert alert-error @enderror">
+                            <label class="control-label" for="name">Name*</label>
+                            <div class="controls">
+                                <input name="name" type="text" id="name" placeholder="Name..." class="span10" value="{{$user->name}}" ><br>
+                                @error('name')
+                                <span class="text-error">{{$message}}</span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="control-group @error('email') alert alert-error @enderror">
+                            <label class="control-label" for="email">Email*</label>
+                            <div class="controls">
+                                <input name="email" type="email" id="email" placeholder="Email..." class="span10" value="{{$user->email}}" ><br>
+                                @error('email')
+                                <span class="text-error">{{$message}}</span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="control-group @error('password') alert alert-error @enderror">
+                            <label class="control-label" for="password">Password*</label>
+                            <div class="controls">
+                                <input name="password" type="password" id="password" placeholder="Password..." class="span10" ><br>
+                                @error('password')
+                                <span class="text-error">{{$message}}</span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="control-group @error('visible_password') alert alert-error @enderror">
+                            <label class="control-label" for="visible_password">Visible Password*</label>
+                            <div class="controls">
+                                <input name="visible_password" type="password" id="visible_password" placeholder="Password..." class="span10" ><br>
+                                @error('visible_password')
+                                <span class="text-error">{{$message}}</span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="control-group @error('occupation') alert alert-error @enderror">
+                            <label class="control-label" for="occupation">Occupation</label>
+                            <div class="controls">
+                                <input name="occupation" type="text" id="occupation" placeholder="Occupation..." class="span10" value="{{$user->occupation}}" ><br>
+                                @error('occupation')
+                                <span class="text-error">{{$message}}</span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="control-group @error('bio') alert alert-error @enderror">
+                            <label class="control-label" for="bio">Bio</label>
+                            <div class="controls">
+                                <input name="bio" type="text" id="bio" placeholder="Bio..." class="span10" value="{{$user->bio}}" ><br>
+                                @error('bio')
+                                <span class="text-error">{{$message}}</span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="control-group @error('address') alert alert-error @enderror">
+                            <label class="control-label" for="address">Address</label>
+                            <div class="controls">
+                                <textarea name="address" type="text" id="address" placeholder="Address..." class="span10">{{$user->address}}</textarea><br>
+                                @error('address')
+                                <span class="text-error">{{$message}}</span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="control-group @error('phone') alert alert-error @enderror">
+                            <label class="control-label" for="phone">Phone*</label>
+                            <div class="controls">
+                                <input name="phone" type="text" id="phone" placeholder="Phone Number..." class="span10" value="{{$user->phone}}" ><br>
+                                @error('phone')
+                                <span class="text-error">{{$message}}</span>
+                                @enderror
+                            </div>
+                        </div>
+
+
+                        <div class="control-group" style="text-align:center">
+                            <div class="">
+                                <button type="submit" class="btn btn-success">Update User</button>
+                            </div>
+                        </div>
+
+                    </form>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+@endsection
+
+```
+
+#### UserController@update
+
+```php
+    public function update(Request $request, string $id)
+    {
+        $filteredData = $this->validateUserDetails($request);
+        (new User)->updateUser($filteredData, $id);
+        return redirect()->route('user.show', $id)->with('message', 'User updated successfully');
+    }
+```
+
+#### User@updateUser - Model method
+
+```php
+    public function updateUser($filteredData, $id){
+        User::find($id)->update($filteredData);
+    }
+```
+
+### Delete User
+
+#### UserController@destroy
+
+```php
+    public function destroy(string $id)
+    {
+        // Prevent logged in user to delete itself
+//        if(auth()->user()->id == $id){
+//            return redirect()->back()->with('error', 'You cannot delete yourself!');
+//        }
+
+        // Admin can only delete a user
+        (new User)->deleteUserById($id);
+        return redirect()->route('user.index')->with('message', 'User deleted successfully!');
+    }
+```
+
+The commented section will be implemented later, when the login feature will be implemented.
+
+[//]: # (User Completed)
+
+# Admin
 
 

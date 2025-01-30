@@ -22,6 +22,14 @@
                     </ul>
                     <!--/.widget-nav-->
 
+                    <ul class="widget widget-menu unstyled">
+                        <li class="active"><a href="{{route('user.create')}}"><i class="menu-icon icon-dashboard"></i>Create User
+                            </a></li>
+                        <li><a href="{{route('user.index')}}"><i class="menu-icon icon-inbox"></i>View Users<b class="label green pull-right">
+                                    {{\App\Models\User::all()->count()}}</b> </a></li>
+                    </ul>
+                    <!--/.widget-nav-->
+
 
                     <ul class="widget widget-menu unstyled">
                         <li><a href="ui-button-icon.html"><i class="menu-icon icon-bold"></i> Buttons </a></li>
