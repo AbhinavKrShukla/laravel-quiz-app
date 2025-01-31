@@ -2057,4 +2057,105 @@ The commented section will be implemented later, when the login feature will be 
 
 # Admin
 
+## Create Seeder file
+
+- Go to [database/seeders/DatabaseSeeder.php](database/seeders/DatabaseSeeder.php)
+- Create a User Instance and fill the fields, and then save it in database.
+```php
+    public function run(): void
+    {
+        $admin = new User();
+        $admin->name = "admin";
+        $admin->email = "admin@gmail.com";
+        $admin->email_verified_at = NOW();
+        $admin->password = bcrypt("password");
+        $admin->visible_password = "password";
+        $admin->occupation = "CEO";;
+        $admin->address = "Ranchi";
+        $admin->phone = "321321321";
+        $admin->is_admin = 1;
+        $admin->save();
+    }
+```
+- Run the db seeder via artisan command:
+`php artisan db:seed`
+
+## Make and Implement Middleware
+
+Steps:
+1. Create a middleware file
+2. Write the middleware logic
+    - Here, if the user is admin then continue the 
+execution `$next($request)`, else abort as unauthorized 401.
+3. Put it in the routes
+4. No need to register the middleware anywhere in laravel 11.3. This is all.
+
+### Create Middleware
+
+`php artisan make:middleware isAdmin`
+
+### Write the middleware logic
+
+```php
+class isAdmin
+{
+    public function handle(Request $request, Closure $next): Response
+    {
+        if (Auth::check() && Auth::user()->is_admin == 1) {
+            return $next($request);
+        }
+        abort(401);
+    }
+}
+```
+
+### Put it in the routes
+
+```php
+Route::middleware(['auth', isAdmin::class])->group( function () {
+    Route::get('/', function () {
+        return view('backend.layouts.dashboard');
+    }); 
+
+    Route::resource('quiz', QuizController::class);
+    Route::resource('question', QuestionController::class);
+    Route::get('quiz/{id}/questions', [QuizController::class, 'questions'])->name('quiz.questions');
+    Route::resource('user', UserController::class);
+});
+```
+
+
+## Implement logout feature
+
+- Go to [resources/views/layouts/app.blade.php](resources/views/layouts/app.blade.php)
+and copy the logout login (<a> and <form>) and paste it in the 
+[resources/views/backend/layouts/sidebar.blade.php](resources/views/backend/layouts/sidebar.blade.php)
+- Do the same in navbar.
+
+
+## Setup home link
+
+```php
+Route::get('/home', [HomeController::class, 'index'])->name('home')->middleware('auth');
+Route::get('/', [HomeController::class, 'index'])->name('admin.dashboard');
+```
+
+```php
+    public function index()
+    {
+        if(auth()->user()->is_admin == 1)
+        {
+            return view('backend.layouts.dashboard');
+        }
+        return view('home');
+    }
+```
+
+[//]: # (Admin Section Completed)
+
+<hr>
+
+# Assign Exam
+
+
 

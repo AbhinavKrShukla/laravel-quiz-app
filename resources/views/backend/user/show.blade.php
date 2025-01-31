@@ -76,6 +76,18 @@
                             </td>
                         </tr>
 
+                        @if($user->is_admin == 1)
+
+                        <tr>
+                            <td>Is Admin</td>
+                            <td>
+                                <strong class="badge badge-success">
+                                    ADMIN
+                                </strong>
+                            </td>
+                        </tr>
+                        @endif
+
 
                     </table>
 
