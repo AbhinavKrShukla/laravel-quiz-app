@@ -12,6 +12,10 @@ class Quiz extends Model
         'minutes',
     ];
 
+    public function users(){
+        return $this->belongsToMany(User::class, 'quiz_user');
+    }
+
     public function questions(){
         return $this->hasMany(Question::class);
     }
@@ -34,6 +38,12 @@ class Quiz extends Model
 
     public function deleteQuiz($id){
         return Quiz::destroy($id);
+    }
+
+    public function assignExam($data){
+        $quizId = $data['quiz'];
+        $userId = $data['user'];
+        return Quiz::find($quizId)->users()->syncWithoutDetaching($userId);
     }
 
 }

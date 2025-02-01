@@ -23,6 +23,7 @@
 
             <div class="module">
                 <div class="module-head">
+
                     <table class="table">
                         <thead>
                         <tr>

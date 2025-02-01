@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ExamController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\QuestionController;
 use App\Http\Controllers\QuizController;
@@ -30,5 +31,11 @@ Route::middleware(['auth', isAdmin::class])->group( function () {
     Route::resource('question', QuestionController::class);
     Route::get('quiz/{id}/questions', [QuizController::class, 'questions'])->name('quiz.questions');
     Route::resource('user', UserController::class);
+
+    // Assign exam
+    Route::get('exam/assign', [ExamController::class, 'create']);
+    Route::post('exam/assign', [ExamController::class, 'assignExam'])->name('assign.exam');
+    Route::get('exam/user', [ExamController::class, 'userExam'])->name('view.exam');
+    Route::post('exam/remove', [ExamController::class, 'removeExam'])->name('exam.remove');
 });
 

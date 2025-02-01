@@ -269,6 +269,9 @@ fields in the database. It would throw a nice error in this case.
     public function questions(){
         return $this->hasMany(Question::class);
     }
+    public function users(){
+        return $this->belongsToMany(User::class, 'quiz_user');
+    }
 
 ```
 
@@ -2055,6 +2058,15 @@ The commented section will be implemented later, when the login feature will be 
 
 [//]: # (User Completed)
 
+## Configure Sidebar
+
+- Sidebar
+  - ...
+  - ...
+  - ++++++++
+  - Create User
+  - Get All Users
+
 # Admin
 
 ## Create Seeder file
@@ -2157,5 +2169,333 @@ Route::get('/', [HomeController::class, 'index'])->name('admin.dashboard');
 
 # Assign Exam
 
+Steps:
+- Setup
+  - Create ExamController
+  - Create folder: `view/backend/assign.blade.php`
+  - Define relationship b/w quiz and users: `quiz belongsToMany users`.
+- CRUD
+  - Assign Exam
+    - Create get route -> ExamController@create -> backend/assign.blade.php
+    - Create post route -> ExamController@assign -> Quiz.assignExam() -> Store in `quiz_user` pivot in db.
+  - Admin view Exam and User
+    - 
+  - Remove assigned exam
+    - Ensure there is a delete button in the index page against each assigned user.
+    - Condition: the assigned exam can be deleted only if it is not attempted by the user.
+- Configure Sidebar
+  - Sidebar
+    - ...
+    - ...
+    - ++++++++
+    - Assign Exam
+    - View User Exam
+
+## Setup
+
+### Create ExamController
+
+`php artisan make:controller ExamController`
+
+### Create `view/backend/assign.blade.php`
+
+### Ensure relationship between quiz and user
+
+```php
+// Quiz model
+    public function users(){
+        return $this->belongsToMany(User::class, 'quiz_user');
+    }
+```
+
+## CRUD
+
+### Assign Exam
+
+#### Create get route
+
+```php
+// under auth middleware
+    Route::get('exam/assign', [ExamController::class, 'create']);
+```
+
+#### ExamController@create
+
+```php
+    public function create()
+    {
+        return view('backend.exam.assign');
+    }
+```
+
+#### Write the view page `view/backend/assign.blade.php`
+
+```bladehtml
+@extends('backend.layouts.master')
+
+@section('content')
+    <div class="span9">
+        <div class="content">
+
+            @if(Session::has('message'))
+                <div class="alert alert-success">
+                    <button type="button" class="close" data-dismiss="alert">×</button>
+                    <strong>{{Session::get('message')}}</strong>
+                </div>
+            @endif
+                    <div class="module">
+                        <div class="module-head">
+                            <h3>Assign Exam</h3>
+                        </div>
+                        <div class="module-body">
+
+                            <form class="form-horizontal row-fluid" method="post" action="{{route('assign.exam')}}"> @csrf @method('POST')
+
+                                <div class="control-group @error('quiz') alert alert-error @enderror">
+                                    <label class="control-label" for="quiz">Select Quiz</label>
+                                    <div class="controls">
+                                        <select id="quiz" tabindex="1" data-placeholder="Select..." class="span4" name="quiz">
+                                            <option value="">Select....</option>
+                                            @foreach(App\Models\Quiz::all() as $quiz)
+                                                <option value="{{$quiz->id}}" @if($quiz->id==old('quiz')) selected @endif >{{$quiz->name}}</option>
+                                            @endforeach
+                                        </select>
+                                        <br>
+                                        @error('quiz')
+                                        <span class="text-error">{{$message}}</span>
+                                        @enderror
+                                    </div>
+                                </div>
+                                <div class="control-group @error('user') alert alert-error @enderror">
+                                    <label class="control-label" for="quiz">Select User</label>
+                                    <div class="controls">
+                                        <select id="user" tabindex="2" data-placeholder="Select..." class="span4" name="user">
+                                            <option value="">Select....</option>
+                                            @foreach(App\Models\User::all() as $user)
+                                                <option value="{{$user->id}}" @if($user->id==old('user')) selected @endif >{{$user->name}}</option>
+                                            @endforeach
+                                        </select>
+                                        <br>
+                                        @error('user')
+                                        <span class="text-error">{{$message}}</span>
+                                        @enderror
+                                    </div>
+                                </div>
 
 
+
+                        </div>
+
+                        <div class="module-foot">
+                                <button tabindex="3" type="submit" class="btn btn-primary">Assign</button>
+
+
+                            </form>
+
+
+                        </div>
+                    </div>
+
+
+        </div>
+    </div>
+
+@endsection
+
+```
+
+
+#### Create post route
+
+```php
+// under auth middleware
+    Route::post('exam/assign', [ExamController::class, 'assignExam'])->name(assign.exam);
+```
+
+#### ExamController@assignExam
+
+```php
+    public function assignExam(Request $request)
+    {
+        $this->validate($request, [
+            'quiz' => 'required',
+            'user' => 'required',
+        ]);
+
+        $quiz = (new Quiz)->assignExam($request->all());
+        return redirect()->back()->with('message', 'Exam assigned successfully');
+        
+    }
+```
+
+#### Quiz@assignExam
+
+```php
+    public function assignExam($data){
+        $quizId = $data['quiz'];
+        $userId = $data['user'];
+        return Quiz::find($quizId)->users()->syncWithoutDetaching($userId);
+    }
+```
+
+### Admin view Exam and User
+
+Steps
+- Create get route `exam/user` -> ExamController@userExam -> `backend/exam/index.blade.php` with `all the quizzes`
+
+#### Create get route
+
+```php
+Route::get('exam/user', [ExamController::class, 'userExam'])->name('view.exam');
+```
+
+#### ExamController@userExam
+
+```php
+    public function userExam()
+    {
+        $quizzes = Quiz::get();
+        return view('backend.exam.index', compact('quizzes'));
+    }
+```
+
+#### backend/exam/index.blade.php
+
+Steps:
+- Iterate all the quizzes
+  - Iterate all the `$quiz->users`
+    - Display the info
+    - The `View Questions` button against each user redirects to 
+    questions of particular quiz.
+
+```bladehtml
+@extends('backend.layouts.master')
+
+@section('content')
+    <div class="span9">
+        <div class="content">
+
+            @if(Session::has('message'))
+                <div class="alert alert-success">
+                    <button type="button" class="close" data-dismiss="alert">×</button>
+                    <strong>{{Session::get('message')}}</strong>
+                </div>
+            @endif
+
+            <div class="module">
+                <div class="module-head">
+                    <h3>All Quiz</h3>
+                </div>
+                <div class="module-body">
+
+
+                    <table class="table table-striped">
+                        <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Name</th>
+                            <th>Quiz</th>
+                            <th></th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @if(count($quizzes) > 0)
+
+                            @php $key=0 @endphp
+                            @foreach($quizzes as $quiz)
+                                @foreach($quiz->users as $user)
+                                    @php $key+=1 @endphp
+                                    <tr>
+                                        <td>{{$key}}</td>
+                                        <td>{{$user->name}}</td>
+                                        <td>{{$quiz->name}}</td>
+                                        <td>
+                                            <a href="{{route('quiz.questions', $quiz->id)}}">
+                                                <button class="btn btn-inverse">View Questions</button>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                @endforeach
+
+                            @endforeach
+
+                        @else
+
+                            <div style="margin: 10px;">
+                                No Quiz to Dispaly!
+                            </div>
+
+                        @endif
+
+                        </tbody>
+                    </table>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+@endsection
+
+```
+
+### Remove assigned exam
+
+Steps
+- Create post-route
+- Add delete button in index page with hits this post-route
+- Create ExamController@removeExam()
+  
+#### Create post-route
+
+```php
+    Route::post('exam/remove', [ExamController::class, 'removeExam'])->name('exam.remove');
+```
+
+#### Add delete button in index page
+
+```bladehtml
+<td>
+    <form action="{{route('exam.remove')}}" method="post"> @csrf
+        <input type="hidden" name="user_id" value="{{$user->id}}"/>
+        <input type="hidden" name="quiz_id" value="{{$quiz->id}}"/>
+        <button type="submit" class="btn btn-danger">Remove</button>
+    </form>
+</td>
+```
+
+#### Create ExamController@removeExam()
+
+```php
+    public function removeExam(Request $request)
+    {
+        $userId = $request->get('user_id');
+        $quizId = $request->get('quiz_id');
+        $quiz = Quiz::find($quizId);
+        $result = Result::where('quiz_id', $quizId)->where('user_id', $userId)->exists();
+
+        if ($result) {
+            return redirect()->back()->with('message', 'Quiz already played by the user! , So can\'t delete it!');
+        } else {
+            $quiz->users()->detach($userId);
+            return redirect()->back()->with('message', 'Quiz unassigned successfully!');
+
+        }
+    }
+```
+
+## Configure Sidebar
+
+- Configure the Sidebar
+  - Sidebar
+    - ...
+    - ...
+    - ++++++++
+    - Assign Exam
+    - View User Exam
+
+[//]: # (Assign Exam completed)
+
+<hr><hr>
+
+# Frontend
