@@ -2499,3 +2499,635 @@ Steps
 <hr><hr>
 
 # Frontend
+
+## Get Details of Quiz
+
+### Create a method in Quiz model to get all the played quiz of the logged-in user
+
+Purpose - get all the quiz attempted by the user
+Steps-
+- Create an empty array, which will store the attempted Quiz.
+- Get the user id.
+- Get the data from Result for this user id.
+- Iterate along the data and push in the array.
+- Return the array.
+
+
+```php
+    public function hasQuizAttempted()
+    {
+        $attemptQuiz = [];
+        $authUser = auth()->user()->id;
+        $user = Result::where('user_id', $authUser)->get();
+        foreach ($user as $u) {
+            array_push($attemptQuiz, $u->quiz_id);
+        }
+        return $attemptQuiz;
+    }
+```
+
+
+### HomeController@index
+
+Purpose:
+- To get the quizzez played by the user; is any quiz assigned to it; which quiz he has completed.
+Steps:
+- If the user is admin, open the admin dashboard view. Else continue.
+- Get the auth user id.
+- Get quiz_id of all the assigned quizzes.
+  - Create an empty array to store assigned quiz to this user.
+  - Get all the data of this user from quiz_user pivot table.
+  - Then, iterate along this data and save all the quiz_id in the array in each iteration.
+- Get all the Quiz whereIn the id is this array containing quiz_id.
+- Get a boolean variable to check if any exam is assigned to this user or not.
+- Get the quiz_id of the quizzes this user has completed.
+
+```php
+    public function index()
+    {
+        if(auth()->user()->is_admin == 1)
+        {
+            return view('backend.layouts.dashboard');
+        }
+
+        $authUser = auth()->user()->id;
+        $assignedQuizId = [];
+        $user = DB::table('quiz_user')->where('user_id', $authUser)->get();
+        foreach($user as $u){
+            array_push($assignedQuizId, $u->quiz_id);
+        }
+        $quizzes = Quiz::whereIn('id', $assignedQuizId)->get();
+
+        $isExamAssigned = DB::table('quiz_user')->where('user_id', $authUser)->exists();
+        $wasQuizCompleted = Result::where('quiz_id', $authUser)->whereIn('quiz_id', (new Quiz)->hasQuizAttempted())->pluck('quiz_id')->toArray();
+
+        return view('home', compact('quizzes', 'isExamAssigned', 'wasQuizCompleted'));
+    }
+```
+
+### view/home.blade.php
+
+Steps:
+- If any exam is assigned to this user, then continue. Else, show "You are not assigned for any exam."
+- Iterate along the $quizzes for each quiz.
+- Display the info about each quiz.
+- Display Start button if the quiz is not completed; else display Completed.
+- Set the href of Start button to: `href="/quiz/{{$quiz->id}}"`
+ 
+## Display each question
+
+### Create route
+
+```php
+Route::get('quiz/{quizId}', [ExamController::class, 'getQuizQuestions'])->name('quiz')->middleware('auth');
+```
+
+### ExamController@getQuizQuestions
+
+Steps:
+- Get the logged-in user id.
+- Get the quiz.
+- Get the time allocated for the quiz.
+- Get the questions of the quiz along with the answers.
+- Get a variable for checking if the user has played the quiz successfully.
+- Return to `view/quiz.blade.php` along with these variables.
+
+```php
+    public function getQuizQuestions($quiz_id)
+    {
+        $authUser = auth()->user()->id;
+        $quiz = Quiz::find($quiz_id);
+        $time = Quiz::where('id', $quiz_id)->value('minutes');
+        $quizQuestions = $quiz->questions()->with('answers')->get();
+        $authUserHasPlayedQuiz = Result::where('quiz_id', $quiz_id)->where('user_id', $authUser)->get();
+
+        return view('quiz', compact('quiz', 'time', 'quizQuestions', 'authUserHasPlayedQuiz'));
+    }
+```
+
+### Some vue.js
+
+- Go to `resources/js/components/`.
+- Create a duplicate of `ExampleComponent.vue` and name it as `QuizComponent.vue`.
+- Then, go to `app.js` in the same directory.
+- Import the QuizComponent and add as `app.component()` in this way:
+```php
+import QuizComponent from "@/components/QuizComponent.vue";
+app.component('quiz-component', QuizComponent);
+```
+- Stop the vite server: `npm run dev`.
+- Run this command: `npm run build --watch`.
+- After success, restart the vite server: `npm run dev`.
+- Now use the `<quiz-component>` in `view/quiz.blade.php>` file.
+
+
+### view/quiz.blade.php
+
+Create this file.
+
+Code it as:
+
+```bladehtml
+@extends('layouts.app')
+
+@section('content')
+    <quiz-component
+        :times = "{{$quiz->minutes}}"
+        :quizId = "{{$quiz->id}}"
+        :quiz-questions = "{{$quizQuestions}}"
+        :has-quiz-played = "{{$authUserHasPlayedQuiz}}"
+    >
+        
+    </quiz-component>
+@endsection
+```
+
+Next step is to code the [`resources/js/components/QuizComponent.vue`](resources/js/components/QuizComponent.vue).
+It is continued in the next section.
+
+
+## Get one question on screen using vue js
+
+```vue
+<template>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        Online Examination
+                        <span class="float-end">{{ questionIndex }}/{{ questions.length }}</span>
+                    </div>
+
+                    <div class="card-body">
+
+                        <div v-for="(question, index) in questions">
+                            <div v-show="index===questionIndex">
+
+                                {{ question.question }}
+                                <ol>
+                                    <li v-for="choice in question.answers">
+                                        <label>
+                                            <input type="radio" name="">
+                                            {{ choice.answer }}
+                                        </label>
+
+                                    </li>
+                                </ol>
+
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="card-footer">
+                        <button class="btn btn-primary float-start" @click="prev()">Prev</button>
+                        <button class="btn btn-primary float-end" @click="next()">Next</button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script>
+export default {
+    props: ['quizid', 'quizQuestions', 'hasQuizPlayed', 'times'],
+    data() {
+        return {
+            questions: this.quizQuestions,
+            questionIndex: 0,
+
+        }
+    },
+    mounted() {
+        console.log('Component mounted.')
+    },
+
+    methods: {
+        next() {
+            this.questionIndex++;
+        },
+        prev() {
+            this.questionIndex--;
+        }
+
+    }
+}
+</script>
+
+```
+
+It is yet not completed. Continued in the next section.
+
+## Get user responses using vue js
+
+```bladehtml
+<template>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        Online Examination
+                        <span class="float-end">{{ questionIndex + 1 }}/{{ questions.length }}</span>
+                    </div>
+
+                    <div class="card-body">
+
+                        <div v-for="(question, index) in questions">
+                            <div v-show="index===questionIndex">
+
+                                {{ question.question }}
+                                <ol>
+                                    <li v-for="choice in question.answers">
+                                        <label>
+                                            <input type="radio"
+                                                :value="choice.is_correct==true?true:choice.answer"
+                                                :name="index"
+                                                v-model="userResponses[index]"
+                                                   @click="choices(question.id, choice.id)"
+                                            >
+                                            {{ choice.answer }}
+                                        </label>
+
+                                    </li>
+                                </ol>
+
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="card-footer" v-show="questionIndex < questions.length">
+                        <div v-show="questionIndex>0">
+                            <button class="btn btn-primary float-start" @click="prev()">Prev</button>
+                        </div>
+                        <div v-show="questionIndex !== questions.length-1">
+                            <button class="btn btn-primary float-end" @click="next()">Next</button>
+                        </div>
+                        <div v-show="questionIndex === questions.length-1">
+                            <button class="btn btn-danger float-end" @click="next()">Submit</button>
+                        </div>
+                    </div>
+
+                    <div v-show="questionIndex === questions.length">
+                        <p style="text-align: center">
+                            You Got: {{score()}}/{{questions.length}}
+                        </p>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script>
+export default {
+    props: ['quizid', 'quizQuestions', 'hasQuizPlayed', 'times'],
+    data() {
+        return {
+            questions: this.quizQuestions,
+            questionIndex: 0,
+            userResponses: Array(this.quizQuestions.length).fill(false),
+            currentQuestion: 0,
+            currentAnswer: 0,
+        }
+    },
+    mounted() {
+        console.log('Component mounted.')
+    },
+
+    methods: {
+        next() {
+            this.questionIndex++;
+        },
+        prev() {
+            this.questionIndex--;
+        },
+        choices(question, answer){
+            this.currentQuestion = question
+            this.currentAnswer = answer
+        },
+        score(){
+            return this.userResponses.filter((val)=>{
+                return val===true;
+            }).length
+        }
+
+    }
+}
+</script>
+```
+
+## Store User Responses in the database
+
+### Create route
+
+```php
+Route::post('quiz/create', [ExamController::class, 'postQuiz'])->middleware('auth');
+```
+
+### ExamController@postQuiz
+
+Steps:
+- Get the `questionId`, `answerId` and `quizId` from `$request`.
+- Get the auth `userId`.
+- Use `updateOrCreate` method so that if the answer is already there it will just update it;
+and if the answer is not there, it will create it.
+
+```php
+    public function postQuiz(Request $request)
+    {
+        $questionId = $request['questionId'];
+        $answerId = $request['answerId'];
+        $quizId = $request['quizId'];
+
+        $authUser = auth()->user()->id;
+
+        return $userQuestionAnswer = Result::updateOrCreate(
+            ['user_id' => $authUser, 'quiz_id' => $quizId, 'question_id' => $questionId],
+            ['answer_id' => $answerId]
+        );
+    }
+```
+
+## Handling situation
+
+- If the user is not assigned for an exam, redirect to homepage with an error message.
+- If the user has already played an exam, redirect to homepage with an error message.
+
+Just modify the `ExamController@getQuizQuestions()`
+
+```php
+    public function getQuizQuestions($quiz_id)
+    {
+        $authUser = auth()->user()->id;
+
+        //added this code now
+        
+        // check if user has been assigned for this quiz
+        $assignedQuizzes = DB::table('quiz_user')->where('user_id', $authUser)->pluck('quiz_id')->toArray();
+        if(!in_array($quiz_id, $assignedQuizzes)){
+            return redirect()->to('/home')->with('error', 'You do not have access to this quiz!');
+        }
+
+        // has user played particular quis
+        $wasCompleted = Result::where('user_id', $authUser)->whereIn('quiz_id', (new Quiz)->hasQuizAttempted())->pluck('quiz_id')->toArray();
+        if(in_array($quiz_id, $wasCompleted)){
+            return redirect()->to('/home')->with('error', 'Quiz already played!');
+        }
+        /////////////////////
+
+        $quiz = Quiz::find($quiz_id);
+        $time = Quiz::where('id', $quiz_id)->value('minutes');
+        $quizQuestions = $quiz->questions()->with('answers')->get();
+        $authUserHasPlayedQuiz = Result::where('quiz_id', $quiz_id)->where('user_id', $authUser)->get();
+
+        return view('quiz', compact('quiz', 'time', 'quizQuestions', 'authUserHasPlayedQuiz'));
+    }
+```
+
+
+## Display User Results
+
+### Create a route
+
+```php
+Route::get('result/user/{userId}/quiz/{quizId}', [ExamController::class, 'viewResult'])->middleware('auth');
+```
+
+### ExamController@viewResult
+
+```php
+    public function viewResult($userId, $quizId)
+    {
+        $results = Result::where('user_id', $userId)->where('quiz_id', $quizId)->get();
+        return view('result-detail', compact('results'));
+    }
+```
+
+### view/result-detail.blade.php
+[resuources/views/result-detail.blade.php](resources/views/result-detail.blade.php)
+
+```bladehtml
+@extends('layouts.app')
+
+@section('content')
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+
+                <div class="text-center">
+                    <h2>Your Result</h2>
+                </div>
+
+
+                @foreach($results as $key=>$result)
+                    <div class="card mb-2">
+
+                        <div class="card-header">
+                            <strong>{{$key+1}}. </strong>
+                            {{$result->question->question}}
+                        </div>
+
+                        <div class="card-body">
+
+                            @foreach($result->question->answers as $i=>$answer)
+                                <div>
+
+                                    <strong>{{$i+1}}.</strong>
+                                    {{$answer->answer}}
+
+
+                                </div>
+                            @endforeach
+
+                            <hr width="550">
+                            <div>
+                                <mark>Your Answer: {{$yourAnswer = $result->answer->answer}}</mark>
+                            </div>
+                            <div>
+                                Correct Answer:
+                                @foreach($result->question->answers as $answer)
+                                    @if($answer->is_correct)
+                                        {{$correctAnswer = $answer->answer}}
+                                    @endif
+                                @endforeach
+                            </div>
+                            <div>
+                                Result:
+                                @if($yourAnswer == $correctAnswer)
+                                    <span class="badge bg-success">Correct</span>
+                                @else
+                                    <span class="badge bg-danger">Incorrect</span>
+                                @endif
+                            </div>
+
+                        </div>
+                    </div>
+                @endforeach
+
+
+            </div>
+        </div>
+    </div>
+@endsection
+
+```
+
+
+## Implement Timer
+
+### Get moment package
+
+#### Install npm package
+`npm install moment`
+
+#### Import it in `resources/js/app.js`
+```js
+// var moment = require('moment'); // require   // for older version
+import moment from 'moment';                    // for newer version
+```
+
+#### Update QuizComponent.vue
+
+```vue
+<template>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        Online Examination
+                        <span class="float-end">{{ questionIndex + 1 }}/{{ questions.length }}</span>
+                    </div>
+
+                    <div class="card-body">
+                        <span class="float-end" style="color: red;">{{ formattedTime }}</span>
+                        <div v-for="(question, index) in questions">
+                            <div v-show="index === questionIndex">
+                                {{ question.question }}
+                                <ol>
+                                    <li v-for="choice in question.answers">
+                                        <label>
+                                            <input type="radio"
+                                                   :value="choice.is_correct === true ? true : choice.answer"
+                                                   :name="index"
+                                                   v-model="userResponses[index]"
+                                                   @click="choices(question.id, choice.id)"
+                                            >
+                                            {{ choice.answer }}
+                                        </label>
+                                    </li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-footer" v-show="questionIndex < questions.length">
+                        <div v-show="questionIndex > 0">
+                            <button class="btn btn-primary float-start" @click="prev()">Prev</button>
+                        </div>
+                        <div v-show="questionIndex !== questions.length - 1">
+                            <button class="btn btn-primary float-end" @click="next(); postUserChoice()">
+                                Next
+                            </button>
+                        </div>
+                        <div v-show="questionIndex === questions.length - 1">
+                            <button class="btn btn-danger float-end" @click="next(); postUserChoice()">Submit</button>
+                        </div>
+                    </div>
+
+                    <div v-show="questionIndex === questions.length">
+                        <p style="text-align: center">
+                            You Got: {{ score() }}/{{ questions.length }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script>
+import moment from "moment";
+
+export default {
+    props: ['quizid', 'quizQuestions', 'hasQuizPlayed', 'times'],
+    data() {
+        return {
+            questions: this.quizQuestions,
+            questionIndex: 0,
+            userResponses: Array(this.quizQuestions.length).fill(false),
+            currentQuestion: 0,
+            currentAnswer: 0,
+            clock: moment.duration(this.times, 'minutes'),
+        };
+    },
+    mounted() {
+        this.startTimer();
+    },
+    computed: {
+        formattedTime() {
+            return moment.utc(this.clock.asMilliseconds()).format("mm:ss");
+        }
+    },
+    methods: {
+        startTimer() {
+            this.interval = setInterval(() => {
+                if (this.clock.asSeconds() > 0) {
+                    this.clock = moment.duration(this.clock.asSeconds() - 10, 'seconds');
+                } else {
+                    clearInterval(this.interval);
+                    alert('Timeout!');
+                    window.location.reload();
+                }
+            }, 1000);
+        },
+        next() {
+            this.questionIndex++;
+        },
+        prev() {
+            this.questionIndex--;
+        },
+        choices(question, answer) {
+            this.currentQuestion = question;
+            this.currentAnswer = answer;
+        },
+        score() {
+            return this.userResponses.filter(val => val === true).length;
+        },
+        postUserChoice() {
+            axios.post('/quiz/create', {
+                answerId: this.currentAnswer,
+                questionId: this.currentQuestion,
+                quizId: this.quizid,
+            }).then(response => {
+                console.log(response);
+            }).catch(error => {
+                alert(error);
+            });
+        }
+    }
+};
+</script>
+
+```
+
+
+## User Profile
+
+- Modify the `home.blade.php` to to display the user details in the right column and the
+quiz assigned and completed in the left column in a ratio of: left:right :: 8:3.
+
+[//]: # (Frontend Completed)
+<hr>
+
+# Result
+
+
+
+

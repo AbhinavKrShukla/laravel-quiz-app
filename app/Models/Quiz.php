@@ -40,10 +40,21 @@ class Quiz extends Model
         return Quiz::destroy($id);
     }
 
-    public function assignExam($data){
+    public function assignExam($data)
+    {
         $quizId = $data['quiz'];
         $userId = $data['user'];
         return Quiz::find($quizId)->users()->syncWithoutDetaching($userId);
     }
 
+    public function hasQuizAttempted()
+    {
+        $attemptQuiz = [];
+        $authUser = auth()->user()->id;
+        $user = Result::where('user_id', $authUser)->get();
+        foreach ($user as $u) {
+            array_push($attemptQuiz, $u->quiz_id);
+        }
+        return $attemptQuiz;
+    }
 }

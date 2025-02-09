@@ -17,12 +17,18 @@ Auth::routes([
     'verify' => false
 ]);
 
+// Frontend routes
+Route::get('/home', [HomeController::class, 'index'])->name('home')->middleware('auth');
+
+Route::get('user/quiz/{quizId}', [ExamController::class, 'getQuizQuestions'])->name('quiz')->middleware('auth');
+Route::post('user/quiz/create', [ExamController::class, 'postQuiz'])->middleware('auth');
+Route::get('result/user/{userId}/quiz/{quizId}', [ExamController::class, 'viewResult'])->middleware('auth');
+
 
 Route::get('/test', function (){
     dd(Auth::user());
 });
 
-Route::get('/home', [HomeController::class, 'index'])->name('home')->middleware('auth');
 Route::get('/', [HomeController::class, 'index'])->name('admin.dashboard');
 
 Route::middleware(['auth', isAdmin::class])->group( function () {

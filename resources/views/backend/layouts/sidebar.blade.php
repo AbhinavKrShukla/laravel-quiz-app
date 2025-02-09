@@ -34,7 +34,7 @@
                         <li class="active"><a href="{{route('assign.exam')}}"><i class="menu-icon icon-dashboard"></i>Assign Exam
                             </a></li>
                         <li><a href="{{route('view.exam')}}"><i class="menu-icon icon-inbox"></i>View User Exam<b class="label green pull-right">
-                                    {{\App\Models\User::all()->count()}}</b> </a></li>
+                                    {{DB::table('quiz_user')->count()}}</b> </a></li>
                     </ul>
                     <!--/.widget-nav-->
 

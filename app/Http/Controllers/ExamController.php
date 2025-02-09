@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Quiz;
 use App\Models\Result;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ExamController extends Controller
 {
@@ -46,4 +47,47 @@ class ExamController extends Controller
         }
     }
 
+    public function getQuizQuestions($quiz_id)
+    {
+        $authUser = auth()->user()->id;
+
+        // check if user has been assigned for this quiz
+        $assignedQuizzes = DB::table('quiz_user')->where('user_id', $authUser)->pluck('quiz_id')->toArray();
+        if(!in_array($quiz_id, $assignedQuizzes)){
+            return redirect()->to('/home')->with('error', 'You do not have access to this quiz!');
+        }
+
+        // has user played particular quis
+        $wasCompleted = Result::where('user_id', $authUser)->whereIn('quiz_id', (new Quiz)->hasQuizAttempted())->pluck('quiz_id')->toArray();
+        if(in_array($quiz_id, $wasCompleted)){
+            return redirect()->to('/home')->with('error', 'Quiz already played!');
+        }
+
+        $quiz = Quiz::find($quiz_id);
+        $time = Quiz::where('id', $quiz_id)->value('minutes');
+        $quizQuestions = $quiz->questions()->with('answers')->get();
+        $authUserHasPlayedQuiz = Result::where('quiz_id', $quiz_id)->where('user_id', $authUser)->get();
+
+        return view('quiz', compact('quiz', 'time', 'quizQuestions', 'authUserHasPlayedQuiz'));
+    }
+
+    public function postQuiz(Request $request)
+    {
+        $questionId = $request['questionId'];
+        $answerId = $request['answerId'];
+        $quizId = $request['quizId'];
+
+        $authUser = auth()->user()->id;
+
+        return $userQuestionAnswer = Result::updateOrCreate(
+            ['user_id' => $authUser, 'quiz_id' => $quizId, 'question_id' => $questionId],
+            ['answer_id' => $answerId]
+        );
+    }
+
+    public function viewResult($userId, $quizId)
+    {
+        $results = Result::where('user_id', $userId)->where('quiz_id', $quizId)->get();
+        return view('result-detail', compact('results'));
+    }
 }
