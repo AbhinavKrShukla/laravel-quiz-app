@@ -82,7 +82,7 @@ export default {
         startTimer() {
             this.interval = setInterval(() => {
                 if (this.clock.asSeconds() > 0) {
-                    this.clock = moment.duration(this.clock.asSeconds() - 10, 'seconds');
+                    this.clock = moment.duration(this.clock.asSeconds() - 1, 'seconds');
                 } else {
                     clearInterval(this.interval);
                     alert('Timeout!');

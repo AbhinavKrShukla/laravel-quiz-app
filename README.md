@@ -3128,6 +3128,121 @@ quiz assigned and completed in the left column in a ratio of: left:right :: 8:3.
 
 # Result
 
+## View Result Part 1
 
+- Admin view of result
+
+### Create a Route
+
+```php
+Route::middleware(['auth', isAdmin::class])->group( function () {
+    // other routes
+    
+    // Result
+    Route::get('result', [ExamController::class, 'result']);
+});
+```
+
+### ExamController@result
+
+```php
+    public function result(){
+        $quizzes = Quiz::get();
+        return view('backend.result.index', compact('quizzes'));
+    }
+```
+
+### backend/result/index.blade.php
+
+[resources/views/backend/result/index.blade.php](resources/views/backend/result/index.blade.php)
+
+
+## View Result Part 2
+
+- Get a detailed result of a user for a particular quiz
+
+### Create Route
+
+```php
+    public function userQuizResult($userId, $quizId){
+        $results = Result::where('user_id', $userId)->where('quiz_id', $quizId)->get();
+        $totalQuestions = Question::where('quiz_id', $quizId)->count();
+        $attemptQuestions = Result::where('quiz_id', $quizId)->where('user_id', $userId)->count();
+        $quiz = Quiz::where('id', $quizId)->get();
+
+        $ans = [];
+        foreach ($results as $answer){
+            array_push($ans, $answer->answer_id);
+        }
+        $userCorrectAnswer = Answer::whereIn('id', $ans)->where('is_correct', 1)->count();
+        $userWrongAnswer = $totalQuestions - $userCorrectAnswer;
+        $percentage = ($userCorrectAnswer/$totalQuestions)*100;
+
+        return view('backend.result.result', compact(
+            'results', 'totalQuestions', 'attemptQuestions', 'userCorrectAnswer',
+            'userWrongAnswer', 'percentage', 'quiz'
+        ));
+    }
+```
+
+### ExamController@userQuizResult
+
+```php
+    public function userQuizResult($userId, $quizId){
+        $user = User::find($userId);
+        $results = Result::where('user_id', $userId)->where('quiz_id', $quizId)->get();
+        $totalQuestions = Question::where('quiz_id', $quizId)->count();
+        $attemptQuestions = Result::where('quiz_id', $quizId)->where('user_id', $userId)->count();
+        $quiz = Quiz::where('id', $quizId)->first();
+
+        $ans = [];
+        foreach ($results as $answer){
+            array_push($ans, $answer->answer_id);
+        }
+        $userCorrectAnswer = Answer::whereIn('id', $ans)->where('is_correct', 1)->count();
+        $userWrongAnswer = $totalQuestions - $userCorrectAnswer;
+        $percentage = ($userCorrectAnswer/$totalQuestions)*100;
+
+        return view('backend.result.result', compact(
+            'results', 'totalQuestions', 'attemptQuestions', 'userCorrectAnswer',
+            'userWrongAnswer', 'percentage', 'quiz', 'user'
+        ));
+    }
+```
+
+
+### backend/result/result.blade.php
+
+[resources/views/backend/result/result.blade.php](resources/views/backend/result/result.blade.php)
+
+
+[//]: # (Result Ends Here)
+<hr>
+
+# Finalization
+
+## Working on Dashboard
+
+- Adjust the links for User, Quizzes, Questions and more as you like.
+
+## Disable RightClick while playing quiz
+
+- Go to [resources/views/quiz.blade.php](resources/views/quiz.blade.php)
+- Add this js code in this file.
+
+```html
+    <script type="text/javascript">
+        window.oncontextmenu = function () {
+            alert("Right Click Disabled");
+            return false;
+        }
+    </script>
+```
+
+[//]: # (Project Ends Here)
+<hr>
+
+Project Ends Here!
+Abhinav Kumar Shukla
 
 
